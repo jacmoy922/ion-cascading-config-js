@@ -1,0 +1,102 @@
+<html>
+<head>
+    <meta charset="UTF-8"/>
+    <script src="./ion-bundle.min.js"></script>
+    <script src="./ion-cascading-config.js"></script>
+    <script>
+    window.onload = function() {
+        // uses ion cascading config to parse ion and display results as a test ground
+        const ionConfigManager = IonConfigManager.fromString("example-1", [...document.querySelectorAll(".example-1.ion-input")][0].textContent);
+
+    };
+    </script>
+</head>
+<body>
+
+<pre class="example-1 ion-input">
+Namespace::Products::{
+    prioritizedCriteria:[
+        websiteFeatureGroup,
+        department,
+        category,
+        subcategory,
+        sku
+    ]
+}
+
+Products::{
+    layout: [
+        brand,
+        title,
+        customerReviews,
+        {
+            name: "price",
+            template: "common",
+            'websiteFeatureGroup-wireless': {
+                template: "wireless" // override the standard template for wireless
+            },
+            modules: [
+                "businessPricing",
+                "rebates",
+                "quantityPrice",
+                "points",
+                'department-111'::{
+                    value: "globalStoreIfd"
+                },
+                'department-222'::{
+                    value: "priceTax"
+                },
+                'department-333'::{
+                    value: "promoMessaging"
+                },
+                'category-444'::'category-555'::{
+                    'websiteFeatureGroup-wireless': {
+                        values: [
+                            {
+                                name: "promoMessaging",
+                                template: "common",
+                                'subcategory-1234': {
+                                    template: "customTemplate1"
+                                },
+                                'subcategory-2345': {
+                                    template: "customTemplate2"
+                                }
+                            },
+                            "samplingBuyBox"
+                        ]
+                    }
+                }
+            ]
+        }
+    ]
+}
+</pre>
+
+<pre class="example-1 expected-output">
+// Given websiteFeatureGroup=wireless, department=111, category=555, subcategory=1234 then layout will be:
+
+layout: [
+    brand,
+    title,
+    customerReviews,
+    {
+        name: "price",
+        template: "wireless",
+        modules: [
+            "businessPricing",
+            "rebates",
+            "quantityPrice",
+            "points",
+            "globalStoreIfd",
+            {
+                name: "promoMessaging",
+                template: "customTemplate1"
+            },
+            "samplingBuyBox"
+        ]
+    }
+]
+</pre>
+
+</body>
+</html>
