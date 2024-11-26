@@ -5,8 +5,18 @@
     <script src="./ion-cascading-config.js"></script>
     <script>
     window.onload = function() {
+        const {
+            CriteriaPredicate,
+            IonConfigManager,
+            NamespacedIonConfigManager
+        } = window.ICC;
+
         // uses ion cascading config to parse ion and display results as a test ground
         const ionConfigManager = IonConfigManager.fromString("example-1", [...document.querySelectorAll(".example-1.ion-input")][0].textContent);
+        console.log(JSON.stringify(ionConfigManager.getValuesForPredicates("Products", {})));
+        const namespacedIonConfigManager = NamespacedIonConfigManager.create({namespace:"Products", configManager: ionConfigManager});
+
+        namespacedIonConfigManager.newQuery().findOrThrow("layout");
 
     };
     </script>
@@ -73,6 +83,24 @@ Products::{
 </pre>
 
 <pre class="example-1 expected-output">
+// Given no inputs then layout will be:
+layout: [
+    brand,
+    title,
+    customerReviews,
+    {
+        name: "price",
+        template: "common",
+        modules: [
+            "businessPricing",
+            "rebates",
+            "quantityPrice",
+            "points"
+        ]
+    }
+]
+
+
 // Given websiteFeatureGroup=wireless, department=111, category=555, subcategory=1234 then layout will be:
 
 layout: [

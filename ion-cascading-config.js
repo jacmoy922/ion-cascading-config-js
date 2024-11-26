@@ -5,6 +5,12 @@
     const IonConfigManager = defineIonConfigManager();
     const NamespacedIonConfigManager = defineNamespacedIonConfigManager();
 
+    window.ICC = {
+        CriteriaPredicate,
+        IonConfigManager,
+        NamespacedIonConfigManager
+    };
+
     function defineIonConfigManager() {
         return {
             /**
@@ -14,13 +20,15 @@
              * ```
              */
             fromIonValues: function() {
-                return createIonConfigManager(arguments.flatMap((it) => it));
+                return createIonConfigManager([...arguments].flatMap((it) => it));
             },
             fromIonValue: function(name, ionValue) {
                 return this.fromIonValues([{name, ionValue}]);
             },
             fromString: function(name, ionString) {
-                return this.fromIonValue(name, ION.load(ionString));
+                return this.fromIonValues(ION.loadAll(ionString).map(it => {
+                    return {name, ionValue: it};
+                }));
             }
         };
 
@@ -65,7 +73,7 @@
             function getValuesByCondition(namespace, condition) {
                 const properties = namespacedProperties[namespace] || [];
                 const aggregatedValues = cascadeMatchableProperties(properties, condition);
-                return Object.entries(aggregatedValues).reduce((acc, (key, value)) => {
+                return Object.entries(aggregatedValues).reduce((acc, [key, value]) => {
                     acc[key] = value.getIonValue(condition);
                     return acc;
                 }, {});
@@ -118,7 +126,7 @@
                         const rawPriorities = ionValue.get("prioritizedCriteria");
                         verifyNamespaceDeclaration(isIonList(rawPriorities), name, ionValue);
 
-                        const parsedPriorities = rawPriorities.map(it => {
+                        const parsedPriorities = [...rawPriorities].map(it => {
                             verifyNamespaceDeclaration(!!it && !it.isNull() && isIonText(it), name, ionValue);
                             return it.stringValue();
                         });
@@ -136,8 +144,7 @@
                     const properties = parseMatchablePropertiesRecursive(name, ionValue, [], propertyListsToSort);
 
                     // combine all configurations for the same namespace together, the first annotation is the namespace
-                    namespacedProperties[namespace] = namespacedPriorities[namespace] || [];
-                    namespacedProperties[namespace].push(properties);
+                    namespacedProperties[namespace] = [...(namespacedProperties[namespace] || []), ...properties];
                 });
 
                 // add the top-level property list to the sort map so it is also sorted
@@ -156,6 +163,7 @@
 
                     const indexedPriorities = priorities.reduce((accumulator, priority, index) => {
                         accumulator[priority] = index;
+                        return accumulator;
                     }, {});
 
                     propertyLists.forEach(properties => {
@@ -166,7 +174,7 @@
                         }
 
                         // remove unnecessary matchable properties which contain no values
-                        removeIf(properties, (matchableProperty) => !matchableProperty.values.length);
+                        removeIf(properties, (matchableProperty) => isObjectEmpty(matchableProperty.values));
 
                         // sort each MatchableProperty's criteria list according to the priority of the individual fields
                         // see README.md for more details on how the algorithm needs to perform
@@ -228,7 +236,7 @@
                     // the ionValue can either be a criteria definition or a value, check for it being a value first to short-circuit
                     const criterionDefinition = parseCriterionDefinition(fieldName);
                     if (criterionDefinition === null) {
-                        values[fieldName] = parseIonPropertyRecursive(recordName, currentCriteria, matchablePropertiesToSort);
+                        values[fieldName] = parseIonPropertyRecursive(recordName, fieldValue, matchablePropertiesToSort);
                         return;
                     }
 
@@ -255,7 +263,7 @@
              * @return An IonProperty
              */
             function parseIonPropertyRecursive(recordName, ionValue, matchablePropertiesToSort) {
-                if (isIonStruct(ionValue) && ionValue.allFields().some(([fieldname, fieldValue]) => couldBeDynamic(fieldvalue)))) {
+                if (isIonStruct(ionValue) && ionValue.allFields().some(([fieldname, fieldValue]) => couldBeDynamic(fieldvalue))) {
                     const subProperties = parseMatchablePropertiesRecursive(recordName, ionValue, [], matchablePropertiesToSort);
                     matchablePropertiesToSort += subProperties;
                     return newDynamicIonStruct(subProperties);
@@ -285,7 +293,7 @@
 
                                 // verify the field is one of the allowed names
                                 const allowedSubListValueKeywords = ["value", "values"];
-                                verify(subFieldName in allowedSubListValueKeywords, recordName, `A sub-list criteria must contain exactly 1 ` +
+                                verify(allowedSubListValueKeywords.includes(subFieldName), recordName, `A sub-list criteria must contain exactly 1 ` +
                                     `field named one of ${allowedSubListValueKeywords} but actually was ${subFieldName}`);
 
                                 // if it is "values" verify it is a list
@@ -545,95 +553,155 @@
 
     function defineNamespacedIonConfigManager() {
         return {
-            // factory methods for creating a NamespacedIonConfigManager
+            create: createNamespacedIonConfigManager
         };
 
         function createNamespacedIonConfigManager(options) {
-            return {
-                // should have functions for querying
-                // manager.withProperty("propertyName", "propertyValue")
-                //     .withProperty("propertyName", "propertyValue")
-                //     .withPredicate("propertyName", function(inputs){})
-                //     .find("key") or .findOrThrow("key")
-            };
-        }
+            if (!options.namespace) {
+                throw `"namespace" must be defined!`;
+            }
+            const namespace = options.namespace;
+            if (!options.configManager) {
+                throw `"configManager" must be defined!`;
+            }
+            const globalConfigManager = options.configManager;
 
-        function newQuery(configManager) {
-            const state = {
-                additionalPredicates: {}, // Map<String, CriteriaPredicate>
-                additionalProperties: {} // Map<String, Set<String>>
-                additionalPropertiesAdded: false,
-                shouldCacheResults: false,
-                cachedResults: null
-            };
+            const defaultProperties = copyObject(options.defaultProperties);
+            const defaultPredicates = {...copyObject(options.defaultPredicates), ...CriteriaPredicate.convertStringMap(defaultProperties)};
+            const defaultValues = globalConfigManager.getValuesForPredicates(namespace, defaultPredicates);
+            const queriesCacheResults = options.queriesCacheResults;
+
             return {
-                cacheResults: function(cacheResults) {
-                    state.shouldCacheResults = !!cacheResults;
-                    return this;
-                },
-                doCacheResults: function() {
-                    state.shouldCacheResults = true;
-                    return this;
-                },
-                doNotCacheResults: function() {
-                    state.shouldCacheResults = false;
-                    return this;
-                },
-                withProperties: function(values) {
-                    Object.entries(values).forEach(([key, value]) => {
+                newQuery
+            };
+
+            /**
+             * Finds all values from the config that match the given predicates combined with the default predicates.
+             *
+             * @param additionalPredicates Any additional properties to add to the default properties. Can be null.
+             * @return A Map<String, IonValue> containing all the values matching the predicates.
+             */
+            function lookupValues(additionalPredicates) {
+                // exit early if there is nothing new to lookup
+                if (isObjectEmpty(additionalPredicates)) {
+                    return newLookupResult(defaultPredicates, defaultValues);
+                }
+
+                // lookup new values by combining the new predicates with the default ones
+                const combinedPredicates = {...defaultPredicates, ...additionalPredicates};
+                const values = globalConfigManager.getValuesForPredicates(namespace, combinedPredicates);
+                return newLookupResult(combinedPredicates, values);
+            }
+
+            function newLookupResult(inputPredicates, outputValues) {
+                return {
+                    _type: "LookupResult",
+                    inputPredicates,
+                    outputValues
+                };
+            }
+
+            function newQuery() {
+                const state = {
+                    additionalPredicates: {}, // Map<String, CriteriaPredicate>
+                    additionalProperties: {}, // Map<String, Set<String>>
+                    additionalPropertiesAdded: false,
+                    shouldCacheResults: false,
+                    cachedResults: null
+                };
+                return {
+                    cacheResults: function(cacheResults) {
+                        state.shouldCacheResults = !!cacheResults;
+                        return this;
+                    },
+                    doCacheResults: function() {
+                        state.shouldCacheResults = true;
+                        return this;
+                    },
+                    doNotCacheResults: function() {
+                        state.shouldCacheResults = false;
+                        return this;
+                    },
+                    withProperties: function(values) {
+                        Object.entries(values).forEach(([key, value]) => {
+                            state.additionalProperties[key] = state.additionalProperties[key] || new Set([]);
+                            state.additionalProperties[key].add(value);
+                        });
+                        state.additionalPropertiesAdded = true;
+                        return this;
+                    },
+                    withProperty: function(key, value) {
                         state.additionalProperties[key] = state.additionalProperties[key] || new Set([]);
                         state.additionalProperties[key].add(value);
-                    });
-                    state.additionalPropertiesAdded = true;
-                    return this;
-                },
-                withProperty: function(key, value) {
-                    state.additionalProperties[key] = state.additionalProperties[key] || new Set([]);
-                    state.additionalProperties[key].add(value);
-                    state.additionalPropertiesAdded = true;
-                    return this;
-                },
-                withPredicates: function(predicates) {
-                    state.additionalPredicates = {...state.additionalPredicates, ...predicates};
-                    state.additionalPropertiesAdded = true;
-                    return this;
-                },
-                withPredicate: function(key, predicate) {
-                    state.additionalPredicates[key] = predicate;
-                    state.additionalPropertiesAdded = true;
-                    return this;
-                },
-                clear: function() {
-                    state.additionalPredicates = {};
-                    state.additionalProperties = {};
-                    state.additionalPropertiesAdded = false;
-                    return this;
-                },
-                findOrNull: function(key) {
-                    return findKey(key, false);
-                },
-                findOrThrow: function(key) {
-                    return findKey(key, true);
-                },
-                findAll: function() {
-                    return lookupAll().outputValues;
-                }
-            };
+                        state.additionalPropertiesAdded = true;
+                        return this;
+                    },
+                    withPredicates: function(predicates) {
+                        state.additionalPredicates = {...state.additionalPredicates, ...predicates};
+                        state.additionalPropertiesAdded = true;
+                        return this;
+                    },
+                    withPredicate: function(key, predicate) {
+                        state.additionalPredicates[key] = predicate;
+                        state.additionalPropertiesAdded = true;
+                        return this;
+                    },
+                    clear: function() {
+                        state.additionalPredicates = {};
+                        state.additionalProperties = {};
+                        state.additionalPropertiesAdded = false;
+                        return this;
+                    },
+                    findOrNull: function(key) {
+                        return findKey(key, false);
+                    },
+                    findOrThrow: function(key) {
+                        return findKey(key, true);
+                    },
+                    findAll: function() {
+                        return lookupAll().outputValues;
+                    }
+                };
 
-            function lookupAll() {
-                // convert properties to predicates and add to the predicates map, if anything has been added
-                if (state.additionalPropertiesAdded) {
-                    state.additionalPredicates = {...state.additionalPredicates, CriteriaPredicate.convertStringSetMap(state.additionalProperties)};
-
-                    // reset state so config is evaluated again
-                    state.additionalProperties = {};
-                    state.additionalPropertiesAdded = false;
-                    state.cachedResults = null;
+                function findKey(key, throwIfEmpty) {
+                    // convert properties to predicates and add to the predicates map, if anything has been added
+                    const lookupResult = lookupAll();
+                    const value = lookupResult.outputValues[key];
+                    if (!!throwIfEmpty && !value) {
+                        throw `Could not find key ${key} with criteria ${JSON.stringify(lookupResult.inputPredicates)}.`;
+                    }
+                    return value;
                 }
 
+                function lookupAll() {
+                    // convert properties to predicates and add to the predicates map, if anything has been added
+                    if (state.additionalPropertiesAdded) {
+                        state.additionalPredicates = {...state.additionalPredicates, ...CriteriaPredicate.convertStringSetMap(state.additionalProperties)};
 
+                        // reset state so config is evaluated again
+                        state.additionalProperties = {};
+                        state.additionalPropertiesAdded = false;
+                        state.cachedResults = null;
+                    }
+
+                    // check if we should use the cached values
+                    if (state.shouldCacheResults) {
+                        // fetch the results if necessary, caching them to the state then return them.
+                        if (state.cachedResults === null) {
+                            state.cachedResults = lookupValues(state.additionalPredicates);
+                        }
+                        return state.cachedResults;
+
+                    } else {
+                        // we don't want to cache the results so we should look them up and clear the cached value
+                        state.cachedResults = null;
+                        return lookupValues(state.additionalPredicates);
+                    }
+                }
             }
         }
+
+
     }
 
     function verify(condition, name, errorMessage) {
@@ -645,6 +713,14 @@
     function verifyNamespaceDeclaration(condition, name, ionValue) {
         verify(condition, name, `A namespace declaration is incorrect. Syntax should be ` +
             `'namespace'::'YourNamespace'::{prioritizedCriteria:[/*Define your priorities as a list of symbols or strings.*/]} but was ${ION.dumpText(ionValue)}`);
+    }
+
+    function copyObject(object) {
+        return {...(object || {})};
+    }
+
+    function isObjectEmpty(object) {
+        return !object || !Object.keys(object).length;
     }
 
     /**
@@ -663,7 +739,7 @@
     }
 
     function isIonText(ionValue) {
-        return isNonNullIon(ionValue) && ionValue.getType().name in ["string", "symbol"];
+        return isNonNullIon(ionValue) && ["string", "symbol"].includes(ionValue.getType().name);
     }
 
     function isIonStruct(ionValue) {
@@ -678,7 +754,7 @@
      * Returns true if the IonValue is an IonStruct or IonList.
      */
     function couldBeDynamic(ionValue) {
-        return isNonNullIon(ionValue) && ionValue.getType().name in ["struct", "list"];
+        return isNonNullIon(ionValue) && ["struct", "list"].includes(ionValue.getType().name);
     }
 
     function isNonNullIon(ionValue) {
@@ -802,28 +878,29 @@
              * @return A Map of key to criteria predicates.
              */
             convertStringMap: function(properties) {
-                if (!properties || !Object.keys(properties).length) {
+                if (isObjectEmpty(properties)) {
                     return {};
                 }
 
                 return Object.entries(properties).reduce((acc, [key, value]) => {
                     acc[key] = (entry) => newContainsStringCriteriaPredicate(entry.value);
+                    return acc;
                 }, {});
             },
             /**
-             * Converts a Map of key to value set pairs into a Map of key to criteria predicates using the {@link
-             * #fromValues(Set)} factory.
+             * Converts a Map of key to value set pairs into a Map of key to criteria predicates using the #fromValues(Set) factory.
              *
              * @param properties A Map of key value pairs.
              * @return A Map of key to criteria predicates.
              */
             convertStringSetMap: function(properties) {
-                if (!properties || !Object.keys(properties).length) {
+                if (isObjectEmpty(properties)) {
                     return {};
                 }
 
                 return Object.entries(properties).reduce((acc, [key, value]) => {
                     acc[key] = (entry) => fromValues(entry.value);
+                    return acc;
                 }, {});
             }
         };
