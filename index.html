@@ -16,8 +16,16 @@
         console.log(JSON.stringify(ionConfigManager.getValuesForPredicates("Products", {})));
         const namespacedIonConfigManager = NamespacedIonConfigManager.create({namespace:"Products", configManager: ionConfigManager});
 
-        namespacedIonConfigManager.newQuery().findOrThrow("layout");
+        console.log(JSON.stringify(namespacedIonConfigManager.newQuery().findOrThrow("layout")));
 
+        // Given websiteFeatureGroup=wireless, department=111, category=555, subcategory=1234 then layout will be:
+        const exampleSearch = namespacedIonConfigManager.newQuery()
+            .withProperty("websiteFeatureGroup", "wireless")
+            .withProperty("department", "111")
+            .withProperty("category", "555")
+            .withProperty("subcategory", "1234")
+            .findOrThrow("layout");
+        console.log(JSON.stringify(exampleSearch));
     };
     </script>
 </head>
@@ -51,7 +59,7 @@ Products::{
                 "quantityPrice",
                 "points",
                 'department-111'::{
-                    value: "globalStoreIfd"
+                    value: "globalStoreId"
                 },
                 'department-222'::{
                     value: "priceTax"
@@ -115,7 +123,7 @@ layout: [
             "rebates",
             "quantityPrice",
             "points",
-            "globalStoreIfd",
+            "globalStoreId",
             {
                 name: "promoMessaging",
                 template: "customTemplate1"

@@ -12,6 +12,9 @@
     };
 
     function defineIonConfigManager() {
+        const SUB_FIELD_VALUE_KEYWORD = "value";
+        const SUB_FIELD_VALUES_KEYWORD = "values";
+
         return {
             /**
              * Creations an IonConfigManager from one or more lists of name->ion pairs. The format of these lists should be
@@ -54,7 +57,7 @@
                  * @return A Map of String to IonValues as a result of processing the config.
                  */
                 getValuesForPredicates: function(namespace, predicates) {
-                    return getValuesByCondition(namespace, (criteria) => (predicates[criteria.key] || CriteriaPredicate.ALWAYS_FALSE).test(criteria.value));
+                    return getValuesByCondition(namespace, (criteria) => (predicates[criteria.key] || CriteriaPredicate.ALWAYS_FALSE).test(criteria.values));
                 },
                 /**
                  * Processes the IonCascadingConfig to produce a resulting map of property keys to their Ion values. A criteria will
@@ -66,7 +69,7 @@
                  */
                 getValuesForProperties: function(namespace, properties) {
                     // check if the input property is contained in the configured property set
-                    return getValuesByCondition(namespace, (entry) => entry.value.has(properties[entry.key]));
+                    return getValuesByCondition(namespace, (entry) => entry.values.has(properties[entry.key]));
                 }
             };
 
@@ -181,8 +184,8 @@
 
                         // first sort each property's criteria from most to least specific
                         properties.forEach(matchableProperty => matchableProperty.criteria.sort((a, b) => {
-                            const priorityA = indexPriorities[a.name];
-                            const priorityB = indexPriorities[b.name];
+                            const priorityA = indexedPriorities[a.name];
+                            const priorityB = indexedPriorities[b.name];
                             return priorityB - priorityA;
                         }));
 
@@ -232,7 +235,7 @@
                 const currentProperty = newMatchableProperty(currentCriteria, values);
 
                 let results = [currentProperty];
-                configStruct.allFields().forEach(([fieldName, fieldValue]) => {
+                configStruct.allFields().forEach(([fieldName, [fieldValue]]) => {
                     // the ionValue can either be a criteria definition or a value, check for it being a value first to short-circuit
                     const criterionDefinition = parseCriterionDefinition(fieldName);
                     if (criterionDefinition === null) {
@@ -263,14 +266,14 @@
              * @return An IonProperty
              */
             function parseIonPropertyRecursive(recordName, ionValue, matchablePropertiesToSort) {
-                if (isIonStruct(ionValue) && ionValue.allFields().some(([fieldname, fieldValue]) => couldBeDynamic(fieldvalue))) {
+                if (isIonStruct(ionValue) && ionValue.allFields().some(([fieldname, [fieldValue]]) => couldBeDynamic(fieldValue))) {
                     const subProperties = parseMatchablePropertiesRecursive(recordName, ionValue, [], matchablePropertiesToSort);
                     matchablePropertiesToSort += subProperties;
                     return newDynamicIonStruct(subProperties);
                 }
 
                 if (isIonList(ionValue) && ionValue.some((item) => couldBeDynamic(item))) {
-                    const listProperties = ionValue.map(rawListValue => {
+                    const listProperties = [...ionValue].map(rawListValue => {
                         // check if this a sub field
                         const annotations = rawListValue.getAnnotations();
                         if (!!annotations.length && parseCriterionDefinition(annotations[0]) !== null) {
@@ -281,7 +284,7 @@
                             // parse the sub field, add it to the sort list then verify that it has the necessary structure
                             const subField = parseCriteriaDefinitionsRecursive(recordName, rawListValue, [], matchablePropertiesToSort)
                                 // remove unnecessary matchable properties which contain no values
-                                .filter(matchableProperty => !!matchableProperty.values.length);
+                                .filter(matchableProperty => !isObjectEmpty(matchableProperty.values));
 
                             matchablePropertiesToSort.push(subField);
 
@@ -292,14 +295,15 @@
                                 const subFieldName = subFieldFieldNames[0];
 
                                 // verify the field is one of the allowed names
-                                const allowedSubListValueKeywords = ["value", "values"];
+                                const allowedSubListValueKeywords = [SUB_FIELD_VALUE_KEYWORD, SUB_FIELD_VALUES_KEYWORD];
                                 verify(allowedSubListValueKeywords.includes(subFieldName), recordName, `A sub-list criteria must contain exactly 1 ` +
                                     `field named one of ${allowedSubListValueKeywords} but actually was ${subFieldName}`);
 
                                 // if it is "values" verify it is a list
-                                verify(subFieldName === "value" || isIonList(property.values[subFieldName]), recordName,
+                                verify(subFieldName === SUB_FIELD_VALUE_KEYWORD || property.values[subFieldName].isListBased(), recordName,
                                     `A sub-list criteria with name "values" must be a list.`);
                             });
+                            return newDynamicIonSubField(subField);
                         }
                         return parseIonPropertyRecursive(recordName, rawListValue, matchablePropertiesToSort);
                     });
@@ -318,13 +322,13 @@
 
                 // group all "or" conditions together by criteria names and putting all the criteria values into a set for O(1) lookup
                 const combinedOrPropertiesMap = groupBy([
-                    ...[!!additionalCriterion ? additionalCriterion : undefined],
+                    additionalCriterion,
                     ...ionValue.getAnnotations().map(potentialCriteria => {
                         const orCriterion = parseCriterionDefinition(potentialCriteria);
                         verify(!!orCriterion, recordName, `Could not parse 'OR' criterion from string. It must be in the format 'key-value'. Input: ${potentialCriteria}`);
                         return orCriterion;
                     })
-                ], (item) => item.identifier, (item) => item.value);
+                ].filter(Boolean), (item) => JSON.stringify(item.identifier), (item) => item.value);
 
                 return Object.entries(combinedOrPropertiesMap).map(([criteriaName, criteriaValues]) => {
                     // dedupe each grouped list of properties
@@ -332,7 +336,7 @@
 
                     return [
                         ...currentCriteria,
-                        newGroupedCriteriaDefinition(criteriaName, values)
+                        newGroupedCriteriaDefinition(JSON.parse(criteriaName), values)
                     ];
                 })
                 .flatMap(criteria => parseMatchablePropertiesRecursive(recordName, ionValue, criteria, matchablePropertiesToSort));
@@ -446,7 +450,7 @@
                     _isIonProperty: true,
                     matchableProperties,
                     getIonValues: function(condition) {
-                        getIonValuesFromIonProperty(this, condition);
+                        return getIonValuesFromIonProperty(this, condition);
                     },
                     getIonValue: function(condition) {
                         // cascade matchable properties into a set of keys and ion values
@@ -456,7 +460,7 @@
                         Object.entries(aggregatedValues).forEach(([fieldName, property]) => {
                             // convert to string and back to a fresh ion object to ensure there's no shared reference back to the config when returning this result
                             // TODO revisit this if its a performance problem, but we do a similar `clone` operation in java here
-                            result[fieldName] = clone(property.getIonvalue(condition));
+                            result[fieldName] = clone(property.getIonValue(condition));
                         });
                         return result;
                     },
@@ -472,7 +476,7 @@
                     _isIonProperty: true,
                     properties,
                     getIonValues: function(condition) {
-                        getIonValuesFromIonProperty(this, condition);
+                        return getIonValuesFromIonProperty(this, condition);
                     },
                     getIonValue: function(condition) {
                         const ionList = newIonList();
@@ -487,13 +491,67 @@
                 };
             }
 
+            function newDynamicIonSubField(subFieldProperties) {
+                return {
+                    _type: "DynamicIonSubField",
+                    _isIonProperty: true,
+                    subFieldProperties,
+                    getIonValue: function(condition) {
+                         // Technically, a sub field of a list could be a list but this would be invalid with the config specification and we do not support it.
+                        throw `getIonValue is not supported for ${this._type}`;
+                    },
+                    /**
+                     * A List's sub field will either be a single field called "value" or a list called "values". We stream them so
+                     * that they are inlined into the parent list.
+                     */
+                    getIonValues: function(condition) {
+                        /*
+                        If subFieldProperties has more than one element, it means that there was a list element conditioned by an OR
+
+                        Example:
+                        [
+                          'field1-true'::
+                          'field2-true'::{
+                            value: 1
+                          }
+                        ]
+
+                        when parsed this produces multiple matchable properties but all of them will have the same value. We don't want to
+                        use them all and return a stream of them all, otherwise there'd be a duplicate for every OR condition that passed.
+                        Instead, we should just sequentially test them all and use the first one that passes since they'll all be equivalent
+                        and the user only wants the value once.
+                         */
+                        const matchedProperty = subFieldProperties.find(property =>
+                            property.criteria.every(criteriaDefinition => criteriaDefinition.testCondition(condition)))
+
+                        if (!matchedProperty) {
+                            return [];
+                        }
+
+                        const entry = Object.entries(matchedProperty.values)[0];
+
+                        // return "value"
+                        if (SUB_FIELD_VALUE_KEYWORD === entry[0]) {
+                            return [entry[1].getIonValue(condition)].filter(Boolean);
+                        }
+
+                        // return "values"
+                        return [...entry[1].getIonValue(condition)].filter(Boolean); // this should be an IonList, convert it to an array
+                    },
+                    isListBased: function() {
+                         // Technically, a sub field of a list could be a list but this would be invalid with the config specification and we do not support it.
+                         throw `getIonValue is not supported for ${this._type}`;
+                    }
+                };
+            }
+
             function newBasicIonProperty(ionValue) {
                 return {
                     _type: "BasicIonProperty",
                     _isIonProperty: true,
                     ionValue,
                     getIonValues: function(condition) {
-                        getIonValuesFromIonProperty(this, condition);
+                        return getIonValuesFromIonProperty(this, condition);
                     },
                     getIonValue: function(condition) {
                         return ionValue;
@@ -531,7 +589,7 @@
                     values,
                     name: identifier.name,
                     testCondition: function(inputCondition) {
-                        const groupedCriteria = {key: identifier.name, values};
+                        const groupedCriteria = {key: identifier.name, values: new Set(values)};
                         const condition = identifier.isNegated ? (x) => !inputCondition(x) : inputCondition;
                         return condition(groupedCriteria);
                     }
@@ -542,7 +600,7 @@
                 if (!ionProperty._isIonProperty) {
                     throw `Input object is not an IonProperty. ${JSON.stringify(ionProperty)}`;
                 }
-                return [ionProperty.getIonValue(condition)];
+                return [ionProperty.getIonValue(condition)].filter(Boolean);
             }
 
             function createTypeString(ionValue) {
@@ -791,6 +849,9 @@
         return new Set([...set1].filter(x => !set2.has(x)));
     }
 
+    function setIntersects(set1, set2) {
+        return [...set1].some(it => set2.has(it));
+    }
 
     function defineCriteriaPredicate() {
 
@@ -808,11 +869,7 @@
         }
 
         function newIntersectsSetCriteriaPredicate(valueSet) {
-            return newCriteriaPredicate((criteriaValues) => {
-                const valueSetMinusCriteriaValues = setDiff(valueSet, criteriaValues);
-                const criteriaValuesMinusValueSet = setDiff(criteriaValues, valueSet);
-                return valueSetMinusCriteriaValues.size !== valueSet.size || criteriaValuesMinusValueSet.size !== criteriaValues.size;
-            });
+            return newCriteriaPredicate((criteriaValues) => setIntersects(valueSet, criteriaValues));
         }
 
         function newContainsStringCriteriaPredicate(value) {
@@ -829,7 +886,7 @@
 
             const valueSet = arguments.length === 0
                 ? new Set([])
-                : new Set(arguments);
+                : new Set([...arguments]);
             return new newIntersectsSetCriteriaPredicate(valueSet);
         }
 
@@ -883,7 +940,7 @@
                 }
 
                 return Object.entries(properties).reduce((acc, [key, value]) => {
-                    acc[key] = (entry) => newContainsStringCriteriaPredicate(entry.value);
+                    acc[key] = newContainsStringCriteriaPredicate(value);
                     return acc;
                 }, {});
             },
@@ -899,7 +956,7 @@
                 }
 
                 return Object.entries(properties).reduce((acc, [key, value]) => {
-                    acc[key] = (entry) => fromValues(entry.value);
+                    acc[key] = fromValues(value);
                     return acc;
                 }, {});
             }
