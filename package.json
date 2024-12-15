@@ -12,55 +12,19 @@
   "__TODO:unpkg": "dist/htmx.min.js",
   "__TODO:web-types": "editors/jetbrains/htmx.web-types.json",
   "scripts": {
+    "build": "npm run lint -- --fix && npm run test",
     "dist": "./scripts/dist.sh && npm run types-generate",
-    "lint": "eslint src/ion-cascading-config.js",
-    "format": "eslint --fix src/htmx.js test/attributes/ test/core/ test/util/",
-    "types-check": "tsc src/htmx.js --noEmit --checkJs --target es6 --lib dom,dom.iterable",
-    "types-generate": "tsc dist/htmx.esm.js --declaration --emitDeclarationOnly --allowJs --outDir dist",
-    "__test": "npm run lint && npm run types-check && mocha-chrome test/index.html",
-    "test": "NODE_OPTIONS='--experimental-vm-modules --experimental-specifier-resolution=node' jest"
+    "lint": "eslint src",
+    "test": "NODE_OPTIONS='--experimental-vm-modules --experimental-specifier-resolution=node' jest --coverage && npm run print-coverage-report-link",
+    "print-coverage-report-link": "echo Coverage Report: ./coverage/lcov-report/index.html"
   },
   "type": "module",
-  "eslintConfig": {
-    "extends": "standard",
-    "rules": {
-      "camelcase": 0,
-      "no-var": 0,
-      "no-undef": 0,
-      "eqeqeq": 0,
-      "no-multi-str": 0,
-      "no-prototype-builtins": 0,
-      "no-cond-assign": 0,
-      "no-empty": 0,
-      "no-eval": 0,
-      "no-new-func": 0,
-      "no-redeclare": 0,
-      "no-return-assign": 0,
-      "no-unused-vars": 0,
-      "no-useless-call": 0,
-      "no-useless-escape": 0,
-      "no-unused-expressions": 0,
-      "space-before-function-paren": [
-        "error",
-        "never"
-      ]
-    }
-  },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
-    "@types/node": "20.0.0",
-    "chai": "^4.3.10",
-    "chai-dom": "^1.12.0",
     "eslint": "^8.57.1",
     "eslint-config-standard": "^17.1.0",
     "eslint-plugin-import": "^2.29.1",
-    "fs-extra": "^9.1.0",
     "jest": "^29.7.0",
-    "mocha": "10.1.0",
-    "mocha-chrome": "https://github.com/Telroshan/mocha-chrome",
-    "mocha-webdriver": "^0.3.2",
-    "sinon": "^9.2.4",
-    "typescript": "^5.5.4",
     "uglify-js": "^3.17.4"
   },
   "dependencies": {

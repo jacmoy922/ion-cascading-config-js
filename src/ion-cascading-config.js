@@ -125,7 +125,7 @@ function defineIonConfigManager() {
                     verifyNamespaceDeclaration(annotations.length === 2, name, ionValue);
 
                     const namespace = annotations[1];
-                    verify(!namespacedPriorities.hasOwnProperty(namespace), name, `Namespace ${namespace} is declared more than once.`);
+                    verify(!Object.prototype.hasOwnProperty.call(namespacedPriorities, namespace), name, `Namespace ${namespace} is declared more than once.`);
 
                     const rawPriorities = ionValue.get("prioritizedCriteria");
                     verifyNamespaceDeclaration(isIonList(rawPriorities), name, ionValue);
@@ -172,7 +172,9 @@ function defineIonConfigManager() {
 
                 propertyLists.forEach(properties => {
                     // remove any MatchableProperties that contain an invalid criteria (if the criteria was not specified in the priorities list for this namespace)
-                    const invalidCriteria = properties.filter(matchableProperty => matchableProperty.criteria.some(criterion => !indexedPriorities.hasOwnProperty(criterion.name)));
+                    const invalidCriteria = properties.filter(matchableProperty =>
+                        matchableProperty.criteria.some(criterion => !Object.prototype.hasOwnProperty.call(indexedPriorities, criterion.name))
+                    );
                     if (invalidCriteria.length) {
                         throw `Namespace ${namespace} contains criteria which are not defined in its priorities. Invalid criteria:${JSON.stringify(invalidCriteria)}`;
                     }
@@ -214,7 +216,7 @@ function defineIonConfigManager() {
 
                         function computeMatchablePropertyPriority(matchableProperty) {
                             const criteriaList = matchableProperty.criteria;
-                            return criteriaList.reduce((currentPriority, item, index) => {
+                            return criteriaList.reduce((currentPriority, item, _) => {
                                 // raise elements to magnitude size = priority size to ensure it is more important than all following elements
                                 const criteriaPriorityValue = (prioritiesSizeBigInt ** (prioritiesSize - 1)) * BigInt(indexedPriorities[item.name] + 1);
                                 return currentPriority + criteriaPriorityValue;
@@ -276,7 +278,7 @@ function defineIonConfigManager() {
          * @return An IonProperty
          */
         function parseIonPropertyRecursive(recordName, ionValue, matchablePropertiesToSort) {
-            if (isIonStruct(ionValue) && ionValue.allFields().some(([fieldname, [fieldValue]]) => couldBeDynamic(fieldValue))) {
+            if (isIonStruct(ionValue) && ionValue.allFields().some(([_, [fieldValue]]) => couldBeDynamic(fieldValue))) {
                 const subProperties = parseMatchablePropertiesRecursive(recordName, ionValue, [], matchablePropertiesToSort);
                 matchablePropertiesToSort += subProperties;
                 return newDynamicIonStruct(subProperties);
@@ -506,7 +508,7 @@ function defineIonConfigManager() {
                 _type: "DynamicIonSubField",
                 _isIonProperty: true,
                 subFieldProperties,
-                getIonValue: function(condition) {
+                getIonValue: function() {
                      // Technically, a sub field of a list could be a list but this would be invalid with the config specification and we do not support it.
                     throw `getIonValue is not supported for ${this._type}`;
                 },
@@ -532,7 +534,7 @@ function defineIonConfigManager() {
                     and the user only wants the value once.
                      */
                     const matchedProperty = subFieldProperties.find(property =>
-                        property.criteria.every(criteriaDefinition => criteriaDefinition.testCondition(condition)))
+                        property.criteria.every(criteriaDefinition => criteriaDefinition.testCondition(condition)));
 
                     if (!matchedProperty) {
                         return [];
@@ -563,7 +565,7 @@ function defineIonConfigManager() {
                 getIonValues: function(condition) {
                     return getIonValuesFromIonProperty(this, condition);
                 },
-                getIonValue: function(condition) {
+                getIonValue: function() {
                     return ionValue;
                 },
                 isListBased: function() {
@@ -908,7 +910,7 @@ function defineCriteriaPredicate() {
         /**
          * A criteria predicate that always returns false.
          */
-        ALWAYS_FALSE: newCriteriaPredicate((criteriaValues) => false),
+        ALWAYS_FALSE: newCriteriaPredicate(() => false),
         /**
          * A convenience CriteriaPredicate factory that checks if the Set of criteria values are contained within the given
          * values.
