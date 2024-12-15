@@ -1,10 +1,10 @@
 //require('../ion-bundle.min.js');
 //require('../src/ion-cascading-config.js');
 
-import {IonConfigManager} from '../src/ion-cascading-config.js';
+import {IonConfigManager, CriteriaPredicate, NamespacedIonConfigManager} from '../src/ion-cascading-config.js';
 import * as ION from "ion-js";
 
-const INPUT = `
+const INPUT_ION = `
 Namespace::Products::{
     prioritizedCriteria:[
         websiteFeatureGroup,
@@ -62,8 +62,74 @@ Products::{
     ]
 }`;
 
-const EXPECTED = {
-    layout: ION.load(`[
+
+
+test('Documentation example with no specified criteria, using the IonConfigManager', () => {
+    const ionConfigManager = IonConfigManager.fromString("example-1", INPUT_ION);
+    const out = ionConfigManager.getValuesForPredicates("Products", {});
+
+    expect(JSON.stringify(out)).toBe(JSON.stringify({
+        layout: ION.load(`[
+            brand,
+            title,
+            customerReviews,
+            {
+                name: "price",
+                template: "common",
+                modules: [
+                    "businessPricing",
+                    "rebates",
+                    "quantityPrice",
+                    "points"
+                ]
+            }
+        ]`)
+    }));
+});
+
+test('Documentation example with some specified criteria, using the IonConfigManager', () => {
+    const ionConfigManager = IonConfigManager.fromString("example-1", INPUT_ION);
+    const out = ionConfigManager.getValuesForPredicates("Products", {
+        websiteFeatureGroup: CriteriaPredicate.fromValue("wireless"),
+        department: CriteriaPredicate.fromValue("111"),
+        category: CriteriaPredicate.fromValue("555"),
+        subcategory: CriteriaPredicate.fromValue("555"),
+        subcategory: CriteriaPredicate.fromValue("1234"),
+    });
+
+    expect(JSON.stringify(out)).toBe(JSON.stringify({
+        layout: ION.load(`[
+            brand,
+            title,
+            customerReviews,
+            {
+                name: "price",
+                template: "wireless",
+                modules: [
+                    "businessPricing",
+                    "rebates",
+                    "quantityPrice",
+                    "points",
+                    "globalStoreId",
+                    {
+                        name: "promoMessaging",
+                        template: "customTemplate1"
+                    },
+                    "samplingBuyBox"
+                ]
+            }
+        ]`)
+    }));
+});
+
+test('Documentation example with no specified criteria, using the NamespacedIonConfigManager', () => {
+    const namespacedIonConfigManager = NamespacedIonConfigManager.create({
+        namespace:"Products",
+        configManager: IonConfigManager.fromString("example-1", INPUT_ION)
+    });
+    const out = namespacedIonConfigManager.newQuery().findOrThrow("layout");
+
+    expect(JSON.stringify(out)).toBe(JSON.stringify(ION.load(`[
         brand,
         title,
         customerReviews,
@@ -77,16 +143,40 @@ const EXPECTED = {
                 "points"
             ]
         }
-    ]`)
-};
-
-test('one', () => {
-
-
-    const ionConfigManager = IonConfigManager.fromString("example-1", INPUT);
-
-    const out = ionConfigManager.getValuesForPredicates("Products", {});
-    //const out = ION.load("1");
-    expect(JSON.stringify(out)).toBe(JSON.stringify(EXPECTED));
+    ]`)));
 });
 
+test('Documentation example with some specified criteria, using the NamespacedIonConfigManager', () => {
+    const namespacedIonConfigManager = NamespacedIonConfigManager.create({
+        namespace:"Products",
+        configManager: IonConfigManager.fromString("example-1", INPUT_ION)
+    });
+    const out = namespacedIonConfigManager.newQuery()
+        .withProperty("websiteFeatureGroup", "wireless")
+        .withProperty("department", "111")
+        .withProperty("category", "555")
+        .withProperty("subcategory", "1234")
+        .findOrThrow("layout");
+
+    expect(JSON.stringify(out)).toBe(JSON.stringify(ION.load(`[
+        brand,
+        title,
+        customerReviews,
+        {
+            name: "price",
+            template: "wireless",
+            modules: [
+                "businessPricing",
+                "rebates",
+                "quantityPrice",
+                "points",
+                "globalStoreId",
+                {
+                    name: "promoMessaging",
+                    template: "customTemplate1"
+                },
+                "samplingBuyBox"
+            ]
+        }
+    ]`)));
+});
