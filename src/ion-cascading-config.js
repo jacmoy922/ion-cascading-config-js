@@ -639,7 +639,7 @@ function defineNamespacedIonConfigManager() {
         const defaultProperties = copyObject(options.defaultProperties);
         const defaultPredicates = {...copyObject(options.defaultPredicates), ...CriteriaPredicate.convertStringMap(defaultProperties)};
         const defaultValues = globalConfigManager.getValuesForPredicates(namespace, defaultPredicates);
-        const queriesCacheResults = options.queriesCacheResults;
+        const queriesCacheResults = !!options.queriesCacheResults;
 
         return {
             newQuery
@@ -676,7 +676,7 @@ function defineNamespacedIonConfigManager() {
                 additionalPredicates: {}, // Map<String, CriteriaPredicate>
                 additionalProperties: {}, // Map<String, Set<String>>
                 additionalPropertiesAdded: false,
-                shouldCacheResults: false,
+                shouldCacheResults: !!queriesCacheResults,
                 cachedResults: null
             };
             return {
