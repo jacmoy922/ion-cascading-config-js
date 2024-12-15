@@ -202,10 +202,19 @@ function defineIonConfigManager() {
 
                         // use BigInts to prevent overflows when dealing with powers
                         const prioritiesSizeBigInt = BigInt(prioritiesSize);
+                        const aScore = computeMatchablePropertyPriority(a);
+                        const bScore = computeMatchablePropertyPriority(b);
+                        if (aScore > bScore) {
+                            return 1;
+                        } else if (aScore < bScore) {
+                            return -1;
+                        } else {
+                            return 0;
+                        }
 
                         function computeMatchablePropertyPriority(matchableProperty) {
                             const criteriaList = matchableProperty.criteria;
-                            return matchablecriteriaList.reduce((currentPriority, item, index) => {
+                            return criteriaList.reduce((currentPriority, item, index) => {
                                 // raise elements to magnitude size = priority size to ensure it is more important than all following elements
                                 const criteriaPriorityValue = (prioritiesSizeBigInt ** (prioritiesSize - 1)) * BigInt(indexedPriorities[item.name] + 1);
                                 return currentPriority + criteriaPriorityValue;
