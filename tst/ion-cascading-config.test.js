@@ -1,6 +1,3 @@
-//require('../ion-bundle.min.js');
-//require('../src/ion-cascading-config.js');
-
 import {IonConfigManager, CriteriaPredicate, NamespacedIonConfigManager} from '../src/ion-cascading-config.js';
 import * as ION from "ion-js";
 
