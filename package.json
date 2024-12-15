@@ -14,18 +14,19 @@
   "scripts": {
     "build": "npm run lint -- --fix && npm run test",
     "dist": "./scripts/dist.sh && npm run types-generate",
-    "lint": "eslint src",
+    "lint": "eslint src tst package.json eslint.config.js",
     "test": "NODE_OPTIONS='--experimental-vm-modules --experimental-specifier-resolution=node' jest --coverage && npm run print-coverage-report-link",
     "print-coverage-report-link": "echo Coverage Report: ./coverage/lcov-report/index.html"
   },
   "type": "module",
   "devDependencies": {
     "@eslint/js": "^9.17.0",
+    "@stylistic/eslint-plugin-js": "^2.12.1",
     "eslint": "^8.57.1",
     "eslint-config-standard": "^17.1.0",
-    "eslint-plugin-import": "^2.29.1",
-    "jest": "^29.7.0",
-    "uglify-js": "^3.17.4"
+    "eslint-plugin-jest": "^28.9.0",
+    "eslint-plugin-json": "^4.0.1",
+    "jest": "^29.7.0"
   },
   "dependencies": {
     "ion-js": "^5.2.1"

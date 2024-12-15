@@ -1,4 +1,8 @@
 import js from "@eslint/js";
+import jest from 'eslint-plugin-jest';
+import json from "eslint-plugin-json";
+import stylisticJs from '@stylistic/eslint-plugin-js';
+
 
 export default [
     js.configs.recommended,
@@ -17,6 +21,17 @@ export default [
                     "argsIgnorePattern": "_"
                 }
             ]
+        },
+        plugins: {
+            jest,
+            '@stylistic/js': stylisticJs
+        },
+        languageOptions: {
+            globals: jest.environments.globals.globals,
         }
+    },
+    {
+        files: ["**/*.json"],
+        ...json.configs["recommended"]
     }
 ];

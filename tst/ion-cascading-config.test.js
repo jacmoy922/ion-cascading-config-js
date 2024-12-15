@@ -93,7 +93,6 @@ test('Documentation example with some specified criteria, using the IonConfigMan
         websiteFeatureGroup: CriteriaPredicate.fromValue("wireless"),
         department: CriteriaPredicate.fromValue("111"),
         category: CriteriaPredicate.fromValue("555"),
-        subcategory: CriteriaPredicate.fromValue("555"),
         subcategory: CriteriaPredicate.fromValue("1234"),
     });
 
