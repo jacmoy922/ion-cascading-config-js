@@ -1,4 +1,4 @@
-import {IonConfigManager, CriteriaPredicate, NamespacedIonConfigManager} from '../src/ion-cascading-config.js';
+import {IonConfigManager, CriteriaPredicate} from '../src/ion-cascading-config.js';
 import * as ION from "ion-js";
 
 const INPUT_ION = `
@@ -159,5 +159,92 @@ test('Skus config test', () => {
         field1: ION.load(`{subField:1234,subStruct:{subSubField:432432}}`),
         field2: ION.load(`[404939]`),
         notExample: ION.load(`"not B0000SKU3"`),
+    }));
+});
+
+test('Skus config test', () => {
+    const out = ionConfigManager.getValuesForPredicates("Skus", {
+        category: CriteriaPredicate.fromValue("001237865"),
+        sku: CriteriaPredicate.fromValue("B0000SKU1")
+    });
+
+    expect(JSON.stringify(out)).toBe(JSON.stringify({
+        field3: ION.load(`"bar"`),
+        field1: ION.load(`{subField:1234}`),
+        field2: ION.load(`[404939]`),
+        notExample: ION.load(`"not B0000SKU3"`),
+    }));
+});
+
+test('Skus config test', () => {
+    const out = ionConfigManager.getValuesForPredicates("Skus", {
+        category: CriteriaPredicate.fromValue("001234321"),
+        sku: CriteriaPredicate.fromValue("B0000SKU2")
+    });
+
+    expect(JSON.stringify(out)).toBe(JSON.stringify({
+        field3: ION.load(`"bar"`),
+        field1: ION.load(`{subField:1234398}`),
+        field2: ION.load(`[4049394]`),
+        notExample: ION.load(`"not B0000SKU3"`),
+        notConditionedfeatureFlagExample: ION.load(`"Hello!"`),
+    }));
+});
+
+test('Skus config test', () => {
+    const out = ionConfigManager.getValuesForPredicates("Skus", {
+        category: CriteriaPredicate.fromValue("001234321"),
+        sku: CriteriaPredicate.fromValue("B0000SKU2"),
+        seller: CriteriaPredicate.fromValue("123231")
+    });
+
+    expect(JSON.stringify(out)).toBe(JSON.stringify({
+        field3: ION.load(`"bar"`),
+        field1: ION.load(`{subField:1234398}`),
+        field2: ION.load(`[4049394,203897432]`),
+        notExample: ION.load(`"not B0000SKU3"`),
+        notConditionedfeatureFlagExample: ION.load(`"Hello!"`),
+    }));
+});
+
+test('Skus config test', () => {
+    const out = ionConfigManager.getValuesForPredicates("Skus", {
+        category: CriteriaPredicate.fromValue("001237865"),
+        sku: CriteriaPredicate.fromValue("B0000SKU3")
+    });
+
+    expect(JSON.stringify(out)).toBe(JSON.stringify({
+        field3: ION.load(`"foo"`),
+        field1: ION.load(`12`)
+    }));
+});
+
+test('Skus config test', () => {
+    const out = ionConfigManager.getValuesForPredicates("Skus", {
+        category: CriteriaPredicate.fromValue("value-has-multiple-hyphens")
+    });
+
+    expect(JSON.stringify(out)).toBe(JSON.stringify({
+        field3: ION.load(`"fib"`),
+        field1: ION.load(`123`)
+    }));
+});
+
+test('Skus config test', () => {
+    const out = ionConfigManager.getValuesForPredicates("Skus", {
+        category: CriteriaPredicate.fromValue("001234321"),
+        sku: CriteriaPredicate.fromValue("B0000SKU2"),
+        featureFlag: CriteriaPredicate.fromCondition((flag) => {
+            // check if flag is EXAMPLE_12345:T1 vs EXAMPLE_12345:C vs something else
+            const parts = flag.split(":");
+            return parts[0] === "EXAMPLE_12345" && parts[1] === "T1";
+        })
+    });
+
+    expect(JSON.stringify(out)).toBe(JSON.stringify({
+        field3: ION.load(`"bar"`),
+        field1: ION.load(`{subField:1234398}`),
+        field2: ION.load(`[12345]`),
+        notExample: ION.load(`"not B0000SKU3"`)
     }));
 });
