@@ -189,7 +189,7 @@ function createIonConfigManager(records) {
                 // For example if our prioritizedCriteria are [a, b, c, d, e, f, g, ... z]
                 // then [a] < [b] < [y ... a] < [z] < [z, a] < [z, b, a] < [z, c] ...
                 properties.sort((a, b) => {
-                    const prioritiesSize = indexedPriorities.length;
+                    const prioritiesSize = Object.keys(indexedPriorities).length;
 
                     // use BigInts to prevent overflows when dealing with powers
                     const prioritiesSizeBigInt = BigInt(prioritiesSize);
@@ -207,7 +207,7 @@ function createIonConfigManager(records) {
                         const criteriaList = matchableProperty.criteria;
                         return criteriaList.reduce((currentPriority, item, _) => {
                             // raise elements to magnitude size = priority size to ensure it is more important than all following elements
-                            const criteriaPriorityValue = (prioritiesSizeBigInt ** (prioritiesSize - 1)) * BigInt(indexedPriorities[item.name] + 1);
+                            const criteriaPriorityValue = (prioritiesSizeBigInt ** BigInt(prioritiesSize - 1)) * BigInt(indexedPriorities[item.name] + 1);
                             return currentPriority + criteriaPriorityValue;
                         }, BigInt(0));
                     }

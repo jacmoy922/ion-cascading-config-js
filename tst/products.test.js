@@ -59,10 +59,9 @@ Products::{
     ]
 }`;
 
-
+const ionConfigManager = IonConfigManager.fromString("example-1", INPUT_ION);
 
 test('Documentation example with no specified criteria, using the IonConfigManager', () => {
-    const ionConfigManager = IonConfigManager.fromString("example-1", INPUT_ION);
     const out = ionConfigManager.getValuesForPredicates("Products", {});
 
     expect(JSON.stringify(out)).toBe(JSON.stringify({
@@ -85,7 +84,6 @@ test('Documentation example with no specified criteria, using the IonConfigManag
 });
 
 test('Documentation example with some specified criteria, using the IonConfigManager', () => {
-    const ionConfigManager = IonConfigManager.fromString("example-1", INPUT_ION);
     const out = ionConfigManager.getValuesForPredicates("Products", {
         websiteFeatureGroup: CriteriaPredicate.fromValue("wireless"),
         department: CriteriaPredicate.fromValue("111"),
@@ -121,7 +119,7 @@ test('Documentation example with some specified criteria, using the IonConfigMan
 test('Documentation example with no specified criteria, using the NamespacedIonConfigManager', () => {
     const namespacedIonConfigManager = NamespacedIonConfigManager.create({
         namespace:"Products",
-        configManager: IonConfigManager.fromString("example-1", INPUT_ION)
+        configManager: ionConfigManager
     });
     const out = namespacedIonConfigManager.newQuery().findOrThrow("layout");
 
@@ -145,7 +143,7 @@ test('Documentation example with no specified criteria, using the NamespacedIonC
 test('Documentation example with some specified criteria, using the NamespacedIonConfigManager', () => {
     const namespacedIonConfigManager = NamespacedIonConfigManager.create({
         namespace:"Products",
-        configManager: IonConfigManager.fromString("example-1", INPUT_ION)
+        configManager: ionConfigManager
     });
     const out = namespacedIonConfigManager.newQuery()
         .withProperty("websiteFeatureGroup", "wireless")
