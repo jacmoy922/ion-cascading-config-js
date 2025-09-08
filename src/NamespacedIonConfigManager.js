@@ -127,7 +127,7 @@ function createNamespacedIonConfigManager(options) {
             const lookupResult = lookupAll();
             const value = lookupResult.outputValues[key];
             if (value === undefined) {
-                if (!!throwIfEmpty) {
+                if (throwIfEmpty) {
                     throw `Could not find key ${key} with criteria ${JSON.stringify(lookupResult.inputPredicates)}.`;
                 } else {
                     return null;

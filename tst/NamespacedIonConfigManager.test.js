@@ -1,5 +1,4 @@
-import {IonConfigManager, CriteriaPredicate, NamespacedIonConfigManager} from '../src/ion-cascading-config.js';
-import * as ION from "ion-js";
+import {IonConfigManager, CriteriaPredicate, NamespacedIonConfigManager} from '../src/index.js';
 
 const INPUT_ION = `
 Namespace::NamespacedIonConfigManagerTest::{
