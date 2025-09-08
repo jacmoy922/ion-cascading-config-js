@@ -56,9 +56,19 @@ function createNamespacedIonConfigManager(options) {
             additionalProperties: {}, // Map<String, Set<String>>
             additionalPropertiesAdded: false,
             shouldCacheResults: !!queriesCacheResults,
-            cachedResults: null
+            cachedResults: null,
+            outputAsIon: false
         };
         return {
+            /**
+             * Specify whether the resulting output should be Ion output or standard javascript objects.
+             * Default is false, meaning output will be standard javascript objects. Ion timestamps will
+             * be output as ISO8601 strings.
+             */
+            outputAsIon: function(shouldOutputAsIon) {
+                state.outputAsIon = shouldOutputAsIon;
+                return this;
+            },
             cacheResults: function(cacheResults) {
                 state.shouldCacheResults = !!cacheResults;
                 return this;
@@ -116,10 +126,16 @@ function createNamespacedIonConfigManager(options) {
             // convert properties to predicates and add to the predicates map, if anything has been added
             const lookupResult = lookupAll();
             const value = lookupResult.outputValues[key];
-            if (!!throwIfEmpty && !value) {
-                throw `Could not find key ${key} with criteria ${JSON.stringify(lookupResult.inputPredicates)}.`;
+            if (value === undefined) {
+                if (!!throwIfEmpty) {
+                    throw `Could not find key ${key} with criteria ${JSON.stringify(lookupResult.inputPredicates)}.`;
+                } else {
+                    return null;
+                }
+            } else {
+                return value;
             }
-            return value;
+            
         }
 
         function lookupAll() {
@@ -133,19 +149,22 @@ function createNamespacedIonConfigManager(options) {
                 state.cachedResults = null;
             }
 
+            let results;
             // check if we should use the cached values
             if (state.shouldCacheResults) {
                 // fetch the results if necessary, caching them to the state then return them.
                 if (state.cachedResults === null) {
                     state.cachedResults = lookupValues(state.additionalPredicates);
                 }
-                return state.cachedResults;
+                results = state.cachedResults;
 
             } else {
                 // we don't want to cache the results so we should look them up and clear the cached value
                 state.cachedResults = null;
-                return lookupValues(state.additionalPredicates);
+                results = lookupValues(state.additionalPredicates);
             }
+            
+            return state.outputAsIon ? results : JSON.parse(JSON.stringify(results));
         }
     }
 }
