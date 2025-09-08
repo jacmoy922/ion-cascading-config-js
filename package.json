@@ -11,6 +11,9 @@
   "__TODO:types": "dist/htmx.esm.d.ts",
   "__TODO:unpkg": "dist/htmx.min.js",
   "__TODO:web-types": "editors/jetbrains/htmx.web-types.json",
+  "exports": {
+    ".": "./src/index.js"
+  },
   "scripts": {
     "build": "npm run lint -- --fix && npm run test",
     "dist": "./scripts/dist.sh && npm run types-generate",
