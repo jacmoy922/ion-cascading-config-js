@@ -1,16 +1,12 @@
 {
   "name": "ion-cascading-config-js",
-  "description": "TODO",
+  "description": "A javascript implementation of the original amzn/ion-cascading-config in java.",
   "keywords": [
     "TODO"
   ],
-  "version": "TODO",
+  "version": "1.0.0",
   "homepage": "https://github.com/jacmoy922/ion-cascading-config-js",
-  "license": "Apache-2.0\t",
-  "__TODO:main": "dist/htmx.esm.js",
-  "__TODO:types": "dist/htmx.esm.d.ts",
-  "__TODO:unpkg": "dist/htmx.min.js",
-  "__TODO:web-types": "editors/jetbrains/htmx.web-types.json",
+  "license": "Apache-2.0",
   "exports": {
     ".": "./src/index.js"
   },
